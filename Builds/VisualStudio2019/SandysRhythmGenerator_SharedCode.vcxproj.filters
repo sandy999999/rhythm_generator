@@ -478,9 +478,6 @@
     <ClCompile Include="..\..\Source\PluginProcessor.cpp">
       <Filter>SandysRhythmGenerator\Source</Filter>
     </ClCompile>
-    <ClCompile Include="..\..\Source\PluginEditor.cpp">
-      <Filter>SandysRhythmGenerator\Source</Filter>
-    </ClCompile>
     <ClCompile Include="..\..\JuceLibraryCode\modules\foleys_gui_magic\Editor\foleys_GUITreeEditor.cpp">
       <Filter>JUCE Modules\foleys_gui_magic\Editor</Filter>
     </ClCompile>
@@ -2725,9 +2722,6 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\..\Source\PluginProcessor.h">
-      <Filter>SandysRhythmGenerator\Source</Filter>
-    </ClInclude>
-    <ClInclude Include="..\..\Source\PluginEditor.h">
       <Filter>SandysRhythmGenerator\Source</Filter>
     </ClInclude>
     <ClInclude Include="..\..\JuceLibraryCode\modules\foleys_gui_magic\Editor\foleys_GUITreeEditor.h">

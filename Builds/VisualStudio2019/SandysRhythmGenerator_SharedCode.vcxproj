@@ -138,7 +138,6 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="..\..\Source\PluginProcessor.cpp"/>
-    <ClCompile Include="..\..\Source\PluginEditor.cpp"/>
     <ClCompile Include="..\..\JuceLibraryCode\modules\foleys_gui_magic\Editor\foleys_GUITreeEditor.cpp">
       <ExcludedFromBuild>true</ExcludedFromBuild>
     </ClCompile>
@@ -2238,7 +2237,6 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\..\Source\PluginProcessor.h"/>
-    <ClInclude Include="..\..\Source\PluginEditor.h"/>
     <ClInclude Include="..\..\JuceLibraryCode\modules\foleys_gui_magic\Editor\foleys_GUITreeEditor.h"/>
     <ClInclude Include="..\..\JuceLibraryCode\modules\foleys_gui_magic\Editor\foleys_MultiListPropertyComponent.h"/>
     <ClInclude Include="..\..\JuceLibraryCode\modules\foleys_gui_magic\Editor\foleys_Palette.h"/>
