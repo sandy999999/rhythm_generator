@@ -188,6 +188,7 @@ void SandysRhythmGeneratorAudioProcessor::processBlock(juce::AudioBuffer<float>&
     auto barLengthInQuarterNotes = posInfo.timeSigNumerator * 4. / posInfo.timeSigDenominator;
     auto positionInBar = (posInfo.ppqPosition - posInfo.ppqPositionOfLastBarStart) / barLengthInQuarterNotes;
     DBG("Bar length: " << barLengthInQuarterNotes);
+    DBG("Position in bar: " << positionInBar);
 
     bool trigger = false;
 
@@ -205,7 +206,8 @@ void SandysRhythmGeneratorAudioProcessor::processBlock(juce::AudioBuffer<float>&
         //Translate octave and note choice into Midi note value - (24 is midi value for C1)
         int note = 24 + (selectedNote * selectedOctave) - 1;
 
-        DBG("Rhythm number" << rhythms.indexOf(rhythm) + "Note: " << note + selectedOctave);
+        DBG("Note: " << note);
+        DBG("Octave: " << selectedOctave);
 
         if (note != rhythm->cachedMidiNote)
         {
@@ -218,6 +220,10 @@ void SandysRhythmGeneratorAudioProcessor::processBlock(juce::AudioBuffer<float>&
         const int step_max = 32;
         const int pulse_min = 1;
 
+    	/*
+    	//Generate random number between step min -> step max, assign to steps
+    	//Generate random number between pulse min -> step, assign to pulses
+
         std::random_device randNum;
         std::mt19937 generator(randNum());
         std::uniform_int_distribution<int> stepDistr(step_min, step_max);
@@ -228,8 +234,11 @@ void SandysRhythmGeneratorAudioProcessor::processBlock(juce::AudioBuffer<float>&
 
         int pulses = pulseDistr(generator);
 
-        DBG("Rhythm number: " << rhythms.indexOf(rhythm) + " Steps: " << steps + " Pulses:" << pulses);
+    	DBG("Rhythm: " << rhythms.indexOf(rhythm));
+        DBG("Steps: " << steps);
+    	DBG("Pulses:" << pulses);
 
+    	*/
         //Create vector for trigger conditions
         std::vector<int> stepArray(steps, 0);
 
@@ -248,7 +257,7 @@ void SandysRhythmGeneratorAudioProcessor::processBlock(juce::AudioBuffer<float>&
                 stepArray[i] = 0;
             }
         }
-
+         
         //Iterate over steps and trigger note on or off
         for (int i = 1; i < steps; ++i)
         {
