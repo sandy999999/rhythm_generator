@@ -1,32 +1,72 @@
 /*
   ==============================================================================
-
     This file contains the basic framework code for a JUCE plugin processor.
-
   ==============================================================================
 */
 
 #include "PluginProcessor.h"
-#include "PluginEditor.h"
+
+#include <random>
 
 //==============================================================================
 SandysRhythmGeneratorAudioProcessor::SandysRhythmGeneratorAudioProcessor()
 #ifndef JucePlugin_PreferredChannelConfigurations
-     : AudioProcessor (BusesProperties()
-                     #if ! JucePlugin_IsMidiEffect
-                      #if ! JucePlugin_IsSynth
-                       .withInput  ("Input",  juce::AudioChannelSet::stereo(), true)
-                      #endif
-                       .withOutput ("Output", juce::AudioChannelSet::stereo(), true)
-                     #endif
-                       )
+    : AudioProcessor(BusesProperties()
+#if ! JucePlugin_IsMidiEffect
+#if ! JucePlugin_IsSynth
+        .withInput("Input", juce::AudioChannelSet::stereo(), true)
+#endif
+        .withOutput("Output", juce::AudioChannelSet::stereo(), true)
+#endif
+    ), parameters(*this, nullptr, Identifier("RhythmGeneratorPlugin"), createParameterLayout(getRhythmCount()))
 #endif
 {
+    for (int i = 0; i < getRhythmCount(); ++i)
+    {
+        auto paramIDs = getParameterIDs(i);
+        jassert(paramIDs.size() == 3);
+
+        auto activeParam = dynamic_cast<AudioParameterBool*>(parameters.getParameter(paramIDs[0]));
+        jassert(activeParam != nullptr);
+
+        auto octParam = dynamic_cast<AudioParameterInt*>(parameters.getParameter(paramIDs[1]));
+        jassert(octParam != nullptr);
+
+        auto noteParam = dynamic_cast<AudioParameterInt*>(parameters.getParameter(paramIDs[2]));
+        jassert(noteParam != nullptr);
+
+        rhythms.add(new Rhythm(activeParam, octParam, noteParam));
+    }
+    startTimer(20);
 }
 
 SandysRhythmGeneratorAudioProcessor::~SandysRhythmGeneratorAudioProcessor()
 {
+    stopTimer();
 }
+
+AudioProcessorValueTreeState::ParameterLayout SandysRhythmGeneratorAudioProcessor::createParameterLayout(const int rhythmCount) const
+{
+
+    AudioProcessorValueTreeState::ParameterLayout params;
+
+    for (int i = 0; i < rhythmCount; ++i)
+    {
+        auto paramIDs = getParameterIDs(i);
+        jassert(paramIDs.size() == 3);
+
+        params.add(std::make_unique<AudioParameterBool>(paramIDs[0], paramIDs[0], true));
+        params.add(std::make_unique<AudioParameterInt>(paramIDs[1], paramIDs[1], 1, 8, 4));
+        params.add(std::make_unique<AudioParameterInt>(paramIDs[2], paramIDs[2], 1, 12, 1));
+    }
+
+    return params;
+}
+int SandysRhythmGeneratorAudioProcessor::getRhythmCount()
+{
+    return 4;
+}
+
 
 //==============================================================================
 const juce::String SandysRhythmGeneratorAudioProcessor::getName() const
@@ -36,29 +76,29 @@ const juce::String SandysRhythmGeneratorAudioProcessor::getName() const
 
 bool SandysRhythmGeneratorAudioProcessor::acceptsMidi() const
 {
-   #if JucePlugin_WantsMidiInput
+#if JucePlugin_WantsMidiInput
     return true;
-   #else
+#else
     return false;
-   #endif
+#endif
 }
 
 bool SandysRhythmGeneratorAudioProcessor::producesMidi() const
 {
-   #if JucePlugin_ProducesMidiOutput
+#if JucePlugin_ProducesMidiOutput
     return true;
-   #else
+#else
     return false;
-   #endif
+#endif
 }
 
 bool SandysRhythmGeneratorAudioProcessor::isMidiEffect() const
 {
-   #if JucePlugin_IsMidiEffect
+#if JucePlugin_IsMidiEffect
     return true;
-   #else
+#else
     return false;
-   #endif
+#endif
 }
 
 double SandysRhythmGeneratorAudioProcessor::getTailLengthSeconds() const
@@ -77,21 +117,21 @@ int SandysRhythmGeneratorAudioProcessor::getCurrentProgram()
     return 0;
 }
 
-void SandysRhythmGeneratorAudioProcessor::setCurrentProgram (int index)
+void SandysRhythmGeneratorAudioProcessor::setCurrentProgram(int index)
 {
 }
 
-const juce::String SandysRhythmGeneratorAudioProcessor::getProgramName (int index)
+const juce::String SandysRhythmGeneratorAudioProcessor::getProgramName(int index)
 {
     return {};
 }
 
-void SandysRhythmGeneratorAudioProcessor::changeProgramName (int index, const juce::String& newName)
+void SandysRhythmGeneratorAudioProcessor::changeProgramName(int index, const juce::String& newName)
 {
 }
 
 //==============================================================================
-void SandysRhythmGeneratorAudioProcessor::prepareToPlay (double sampleRate, int samplesPerBlock)
+void SandysRhythmGeneratorAudioProcessor::prepareToPlay(double sampleRate, int samplesPerBlock)
 {
     // Use this method as the place to do any pre-playback
     // initialisation that you need..
@@ -104,55 +144,127 @@ void SandysRhythmGeneratorAudioProcessor::releaseResources()
 }
 
 #ifndef JucePlugin_PreferredChannelConfigurations
-bool SandysRhythmGeneratorAudioProcessor::isBusesLayoutSupported (const BusesLayout& layouts) const
+bool SandysRhythmGeneratorAudioProcessor::isBusesLayoutSupported(const BusesLayout& layouts) const
 {
-  #if JucePlugin_IsMidiEffect
-    juce::ignoreUnused (layouts);
+#if JucePlugin_IsMidiEffect
+    juce::ignoreUnused(layouts);
     return true;
-  #else
+#else
     // This is the place where you check if the layout is supported.
     // In this template code we only support mono or stereo.
     if (layouts.getMainOutputChannelSet() != juce::AudioChannelSet::mono()
-     && layouts.getMainOutputChannelSet() != juce::AudioChannelSet::stereo())
+        && layouts.getMainOutputChannelSet() != juce::AudioChannelSet::stereo())
         return false;
 
     // This checks if the input layout matches the output layout
-   #if ! JucePlugin_IsSynth
+#if ! JucePlugin_IsSynth
     if (layouts.getMainOutputChannelSet() != layouts.getMainInputChannelSet())
         return false;
-   #endif
+#endif
 
     return true;
-  #endif
+#endif
 }
 #endif
 
-void SandysRhythmGeneratorAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::MidiBuffer& midiMessages)
+void SandysRhythmGeneratorAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::MidiBuffer& midiMessages)
 {
-    juce::ScopedNoDenormals noDenormals;
-    auto totalNumInputChannels  = getTotalNumInputChannels();
-    auto totalNumOutputChannels = getTotalNumOutputChannels();
+    //No channels in audio buffer for midi effect
+    jassert(buffer.getNumChannels() == 0);
 
-    // In case we have more outputs than inputs, this code clears any output
-    // channels that didn't contain input data, (because these aren't
-    // guaranteed to be empty - they may contain garbage).
-    // This is here to avoid people getting screaming feedback
-    // when they first compile a plugin, but obviously you don't need to keep
-    // this code if your algorithm always overwrites all the output channels.
-    for (auto i = totalNumInputChannels; i < totalNumOutputChannels; ++i)
-        buffer.clear (i, 0, buffer.getNumSamples());
+    //Get info for host sync
+    auto* playHead = getPlayHead();
 
-    // This is the place where you'd normally do the guts of your plugin's
-    // audio processing...
-    // Make sure to reset the state if your inner loop is processing
-    // the samples and the outer loop is handling the channels.
-    // Alternatively, you can process the samples with the channels
-    // interleaved by keeping the same state.
-    for (int channel = 0; channel < totalNumInputChannels; ++channel)
+    if (playHead != nullptr)
     {
-        auto* channelData = buffer.getWritePointer (channel);
+        AudioPlayHead::CurrentPositionInfo position;
+        playHead->getCurrentPosition(position);
 
-        // ..do something to the data...
+        posInfo = position;
+    }
+
+    //If you calculate how much time in PPQ has passed in each sample, you can time your midi events correctly.
+
+    auto barLengthInQuarterNotes = posInfo.timeSigNumerator * 4. / posInfo.timeSigDenominator;
+    auto positionInBar = (posInfo.ppqPosition - posInfo.ppqPositionOfLastBarStart) / barLengthInQuarterNotes;
+    DBG("Bar length: " << barLengthInQuarterNotes);
+
+    bool trigger = false;
+
+    //Create midiEvent trigger on each quarter note 
+    if (positionInBar == 1.00 || positionInBar == 2.00 || positionInBar == 3.00 || positionInBar == barLengthInQuarterNotes)
+    {
+        trigger = true;
+    }
+
+    for (auto rhythm : rhythms)
+    {
+        int selectedNote = rhythm->note->get();
+        int selectedOctave = rhythm->octave->get();
+
+        //Translate octave and note choice into Midi note value - (24 is midi value for C1)
+        int note = 24 + (selectedNote * selectedOctave) - 1;
+
+        DBG("Rhythm number" << rhythms.indexOf(rhythm) + "Note: " << note + selectedOctave);
+
+        if (note != rhythm->cachedMidiNote)
+        {
+            rhythm->reset();
+            continue;
+        }
+
+        //Generate random step and pulse lengths uniformly
+        const int step_min = 4;
+        const int step_max = 32;
+        const int pulse_min = 1;
+
+        std::random_device randNum;
+        std::mt19937 generator(randNum());
+        std::uniform_int_distribution<int> stepDistr(step_min, step_max);
+
+        int steps = stepDistr(generator);
+
+        std::uniform_int_distribution<int> pulseDistr(pulse_min, steps);
+
+        int pulses = pulseDistr(generator);
+
+        DBG("Rhythm number: " << rhythms.indexOf(rhythm) + " Steps: " << steps + " Pulses:" << pulses);
+
+        //Create vector for trigger conditions
+        std::vector<int> stepArray(steps, 0);
+
+        //Euclidean algorithm
+
+        for (int i = 1; i < steps; ++i) {
+            int bucket = pulses;
+
+            if (bucket >= steps)
+            {
+                bucket -= steps;
+                stepArray[i] = 1;
+            }
+            else
+            {
+                stepArray[i] = 0;
+            }
+        }
+
+        //Iterate over steps and trigger note on or off
+        for (int i = 1; i < steps; ++i)
+        {
+            if (trigger == true)
+            {
+                if (stepArray[i] == 1)
+                {
+                    midiMessages.addEvent(MidiMessage::noteOn(1, note, 100.0f), midiMessages.getLastEventTime() + 1);
+                }
+                else if (stepArray[i] == 0)
+                {
+                    midiMessages.addEvent(MidiMessage::noteOff(1, note, 0.0f), midiMessages.getLastEventTime() + 1);
+                }
+            }
+        }
+
     }
 }
 
@@ -164,21 +276,63 @@ bool SandysRhythmGeneratorAudioProcessor::hasEditor() const
 
 juce::AudioProcessorEditor* SandysRhythmGeneratorAudioProcessor::createEditor()
 {
-    return new SandysRhythmGeneratorAudioProcessorEditor (*this);
+    // MAGIC GUI: create the generated editor, load your GUI from magic.xml in the binary resources
+    // if you haven't created one yet, just give it a magicState and remove the last two arguments
+    return new foleys::MagicPluginEditor(magicState);
 }
 
 //==============================================================================
-void SandysRhythmGeneratorAudioProcessor::getStateInformation (juce::MemoryBlock& destData)
+void SandysRhythmGeneratorAudioProcessor::getStateInformation(juce::MemoryBlock& destData)
 {
     // You should use this method to store your parameters in the memory block.
     // You could do that either as raw data, or use the XML or ValueTree classes
     // as intermediaries to make it easy to save and load complex data.
+    magicState.getStateInformation(destData);
 }
 
-void SandysRhythmGeneratorAudioProcessor::setStateInformation (const void* data, int sizeInBytes)
+void SandysRhythmGeneratorAudioProcessor::setStateInformation(const void* data, int sizeInBytes)
 {
     // You should use this method to restore your parameters from this memory block,
     // whose contents will have been created by the getStateInformation() call.
+    magicState.setStateInformation(data, sizeInBytes, getActiveEditor());
+}
+
+SandysRhythmGeneratorAudioProcessor::Rhythm::Rhythm(AudioParameterBool* isActive, AudioParameterInt* octaveNumber, AudioParameterInt* noteNumber)
+    :
+    activated(isActive), octave(octaveNumber), note(noteNumber)
+{
+    reset();
+}
+
+void SandysRhythmGeneratorAudioProcessor::Rhythm::reset()
+{
+    //Translate octave and note choice into Midi note value - (24 is midi value for C1)
+    cachedMidiNote = 24 + (note->get() * octave->get()) - 1;
+}
+
+StringArray SandysRhythmGeneratorAudioProcessor::getParameterIDs(const int rhythmIndex)
+{
+    String activated = "Activated";
+    String note = "NoteNumber";
+    String octave = "Octave";
+
+
+    StringArray paramIDs = { activated, note, octave };
+
+    //Append Rhythms index to parameter IDs
+    for (int i = 0; i < paramIDs.size(); ++i)
+        paramIDs.getReference(i) += rhythmIndex;
+    return paramIDs;
+}
+
+void SandysRhythmGeneratorAudioProcessor::timerCallback()
+{
+
+    for (auto rhythm : rhythms)
+    {
+        if (rhythm->activated->get() != true)
+            return;
+    }
 }
 
 //==============================================================================
