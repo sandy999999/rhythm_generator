@@ -1,11 +1,6 @@
 Microsoft Visual Studio Solution File, Format Version 11.00
 # Visual Studio 2019
 
-Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "SandysRhythmGenerator - Standalone Plugin", "SandysRhythmGenerator_StandalonePlugin.vcxproj", "{74C76CE0-01F5-1AFE-60EE-A1CDCAB9F786}"
-	ProjectSection(ProjectDependencies) = postProject
-		{D8E55301-15B5-15EE-0AC1-34AC488995DE} = {D8E55301-15B5-15EE-0AC1-34AC488995DE}
-	EndProjectSection
-EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "SandysRhythmGenerator - VST3", "SandysRhythmGenerator_VST3.vcxproj", "{11974586-9518-11BB-7C46-55A6D33B75CC}"
 	ProjectSection(ProjectDependencies) = postProject
 		{D8E55301-15B5-15EE-0AC1-34AC488995DE} = {D8E55301-15B5-15EE-0AC1-34AC488995DE}
@@ -23,10 +18,6 @@ Global
 		{11974586-9518-11BB-7C46-55A6D33B75CC}.Debug|x64.Build.0 = Debug|x64
 		{11974586-9518-11BB-7C46-55A6D33B75CC}.Release|x64.ActiveCfg = Release|x64
 		{11974586-9518-11BB-7C46-55A6D33B75CC}.Release|x64.Build.0 = Release|x64
-		{74C76CE0-01F5-1AFE-60EE-A1CDCAB9F786}.Debug|x64.ActiveCfg = Debug|x64
-		{74C76CE0-01F5-1AFE-60EE-A1CDCAB9F786}.Debug|x64.Build.0 = Debug|x64
-		{74C76CE0-01F5-1AFE-60EE-A1CDCAB9F786}.Release|x64.ActiveCfg = Release|x64
-		{74C76CE0-01F5-1AFE-60EE-A1CDCAB9F786}.Release|x64.Build.0 = Release|x64
 		{D8E55301-15B5-15EE-0AC1-34AC488995DE}.Debug|x64.ActiveCfg = Debug|x64
 		{D8E55301-15B5-15EE-0AC1-34AC488995DE}.Debug|x64.Build.0 = Debug|x64
 		{D8E55301-15B5-15EE-0AC1-34AC488995DE}.Release|x64.ActiveCfg = Release|x64
