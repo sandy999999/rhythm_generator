@@ -169,10 +169,11 @@ bool SandysRhythmGeneratorAudioProcessor::isBusesLayoutSupported(const BusesLayo
 
 void SandysRhythmGeneratorAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::MidiBuffer& midiMessages)
 {
+    midiMessages.clear();
     //No channels in audio buffer for midi effect
     jassert(buffer.getNumChannels() == 0);
 
-    //Get info for host sync
+    //Get info from host
     auto* playHead = getPlayHead();
 
     if (playHead != nullptr)
@@ -183,16 +184,16 @@ void SandysRhythmGeneratorAudioProcessor::processBlock(juce::AudioBuffer<float>&
     //If you calculate how much time in PPQ has passed in each sample, you can time your midi events correctly.
 
     auto barLengthInQuarterNotes = posInfo.timeSigNumerator * 4. / posInfo.timeSigDenominator;
-    auto positionInBar = (posInfo.ppqPosition - posInfo.ppqPositionOfLastBarStart) / barLengthInQuarterNotes;
+    auto positionInBar = 10 * ((floor(posInfo.ppqPosition - posInfo.ppqPositionOfLastBarStart)) / barLengthInQuarterNotes);
     DBG("Bar length: " << barLengthInQuarterNotes);
     DBG("Position in bar: " << positionInBar);
 
+    //Create midiEvent trigger on each quarter note
     bool trigger = false;
 
-    //Create midiEvent trigger on each quarter note 
-    if (positionInBar == 1.00 || positionInBar == 2.00 || positionInBar == 3.00 || positionInBar == barLengthInQuarterNotes)
+    if(positionInBar == 0.00 || positionInBar == 2.5 || positionInBar == 5.00 || positionInBar == 7.5 || positionInBar == 10.00)
     {
-        trigger = true;
+        trigger == true;
     }
 
 	//Seed for random number generator
@@ -205,18 +206,20 @@ void SandysRhythmGeneratorAudioProcessor::processBlock(juce::AudioBuffer<float>&
 
         //Translate octave and note choice into Midi note value - (24 is midi value for C1)
         int note = 24 + (selectedNote * selectedOctave) - 1;
-
-        DBG("Note: " << note);
-        DBG("Octave: " << selectedOctave);
-
+         
+    	/*Reset if note is changed
         if (note != rhythm->cachedMidiNote)
         {
             rhythm->reset();
             continue;
-        }
+        }*/
 
     	if(rhythm->activated->get()==true)
     	{
+            DBG("Rhythm: " << rhythms.indexOf(rhythm));
+            DBG("Note: " << note);
+            DBG("Octave: " << selectedOctave);
+    		
             //Generate random step and pulse lengths uniformly
             const int step_min = 4;
             const int step_max = 32;
@@ -226,43 +229,39 @@ void SandysRhythmGeneratorAudioProcessor::processBlock(juce::AudioBuffer<float>&
             int steps = rand() % range + step_min;
             int pulses = rand() % steps + pulse_min;
 
-            DBG("Rhythm: " << rhythms.indexOf(rhythm));
-            DBG("Steps: " << steps);
+
+
+            //Call Euclidean algorithm and store pulses and steps into string
+            std::string rhythmSeq = euclidean(pulses, steps);
+    		
+            DBG("Rhythm sequence: " << rhythmSeq);
+            DBG("Steps: " << rhythmSeq.length());
             DBG("Pulses:" << pulses);
 
-            //Create vector for trigger conditions
-            std::vector<int> stepArray(steps, 0);
 
-            //Euclidean algorithm
-            for (int i = 1; i < steps; ++i) {
-                int bucket = pulses;
-
-                if (bucket >= steps)
-                {
-                    stepArray.at(i) = 1;
-                    bucket -= steps;
-                }
-                else
-                {
-                    stepArray.at(i) = 0;
-                }
+    		//Reset sequence when reaching end
+            if (rhythm->currentStep >= (rhythmSeq.length())) {
+                rhythm->currentStep = 0;
             }
 
-            //Iterate over steps and trigger note on or off
-            for (int i = 1; i < steps; ++i)
-            {
-                if (trigger == true)
-                {
-                    if (stepArray[i] == 1)
+    		for(int i = 1; i < rhythmSeq.length(); ++i)
+    		{
+    			if(trigger == true)
+    			{
+                    rhythm->currentStep = i;
+                    DBG("Current step: " << rhythm->currentStep);
+
+                    if (rhythmSeq[i] == 1)
                     {
                         midiMessages.addEvent(MidiMessage::noteOn(1, note, 100.0f), midiMessages.getLastEventTime() + 1);
+                        DBG("Note on on rhythm number " << rhythms.indexOf(rhythm));
                     }
-                    else if (stepArray[i] == 0)
+                    else if (rhythmSeq[i] == 0)
                     {
                         midiMessages.addEvent(MidiMessage::noteOff(1, note, 0.0f), midiMessages.getLastEventTime() + 1);
                     }
-                }
-            }
+    			}
+    		}
     	}
 
     }
@@ -301,15 +300,13 @@ SandysRhythmGeneratorAudioProcessor::Rhythm::Rhythm(AudioParameterBool* isActive
     :
     activated(isActive), octave(octaveNumber), note(noteNumber)
 {
-    currentStep = 0;
     reset();
 }
 
 void SandysRhythmGeneratorAudioProcessor::Rhythm::reset()
 {
-    //Translate octave and note choice into Midi note value - (24 is midi value for C1)
     cachedMidiNote = 24 + (note->get() * octave->get()) - 1;
-    activated = false;
+    currentStep = 0;
 }
 
 StringArray SandysRhythmGeneratorAudioProcessor::getParameterIDs(const int rhythmIndex)

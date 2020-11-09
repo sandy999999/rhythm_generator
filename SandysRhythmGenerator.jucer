@@ -1,8 +1,8 @@
 <?xml version="1.0" encoding="UTF-8"?>
 
 <JUCERPROJECT id="eJUMOV" name="SandysRhythmGenerator" projectType="audioplug"
-              useAppConfig="0" addUsingNamespaceToJuceHeader="0" displaySplashScreen="1"
-              jucerFormatVersion="1" pluginFormats="buildVST3" pluginCharacteristicsValue="pluginIsMidiEffectPlugin,pluginProducesMidiOut,pluginWantsMidiIn">
+              useAppConfig="0" displaySplashScreen="1" jucerFormatVersion="1"
+              pluginFormats="buildVST3" pluginCharacteristicsValue="pluginIsMidiEffectPlugin,pluginProducesMidiOut,pluginWantsMidiIn">
   <MAINGROUP id="phjcLb" name="SandysRhythmGenerator">
     <GROUP id="{A15C9FD8-9AE5-E356-EF5A-E8ED079A5FA3}" name="Source">
       <FILE id="gZcQnl" name="PluginProcessor.cpp" compile="1" resource="0"
