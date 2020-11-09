@@ -55,7 +55,7 @@ AudioProcessorValueTreeState::ParameterLayout SandysRhythmGeneratorAudioProcesso
         auto paramIDs = getParameterIDs(i);
         jassert(paramIDs.size() == 3);
 
-        params.add(std::make_unique<AudioParameterBool>(paramIDs[0], paramIDs[0], true));
+        params.add(std::make_unique<AudioParameterBool>(paramIDs[0], paramIDs[0], false));
         params.add(std::make_unique<AudioParameterInt>(paramIDs[1], paramIDs[1], 1, 8, 4));
         params.add(std::make_unique<AudioParameterInt>(paramIDs[2], paramIDs[2], 1, 12, 1));
     }
@@ -177,10 +177,7 @@ void SandysRhythmGeneratorAudioProcessor::processBlock(juce::AudioBuffer<float>&
 
     if (playHead != nullptr)
     {
-        AudioPlayHead::CurrentPositionInfo position;
-        playHead->getCurrentPosition(position);
-
-        posInfo = position;
+        playHead->getCurrentPosition(posInfo);
     }
 
     //If you calculate how much time in PPQ has passed in each sample, you can time your midi events correctly.
@@ -198,6 +195,9 @@ void SandysRhythmGeneratorAudioProcessor::processBlock(juce::AudioBuffer<float>&
         trigger = true;
     }
 
+	//Seed for random number generator
+    srand(getTimerInterval());
+	
     for (auto rhythm : rhythms)
     {
         int selectedNote = rhythm->note->get();
@@ -215,64 +215,55 @@ void SandysRhythmGeneratorAudioProcessor::processBlock(juce::AudioBuffer<float>&
             continue;
         }
 
-        //Generate random step and pulse lengths uniformly
-        const int step_min = 4;
-        const int step_max = 32;
-        const int pulse_min = 1;
+    	if(rhythm->activated->get()==true)
+    	{
+            //Generate random step and pulse lengths uniformly
+            const int step_min = 4;
+            const int step_max = 32;
+            const int pulse_min = 1;
+            int range = step_min - step_max + 1;
 
-    	/*
-    	//Generate random number between step min -> step max, assign to steps
-    	//Generate random number between pulse min -> step, assign to pulses
+            int steps = rand() % range + step_min;
+            int pulses = rand() % steps + pulse_min;
 
-        std::random_device randNum;
-        std::mt19937 generator(randNum());
-        std::uniform_int_distribution<int> stepDistr(step_min, step_max);
+            DBG("Rhythm: " << rhythms.indexOf(rhythm));
+            DBG("Steps: " << steps);
+            DBG("Pulses:" << pulses);
 
-        int steps = stepDistr(generator);
+            //Create vector for trigger conditions
+            std::vector<int> stepArray(steps, 0);
 
-        std::uniform_int_distribution<int> pulseDistr(pulse_min, steps);
+            //Euclidean algorithm
+            for (int i = 1; i < steps; ++i) {
+                int bucket = pulses;
 
-        int pulses = pulseDistr(generator);
-
-    	DBG("Rhythm: " << rhythms.indexOf(rhythm));
-        DBG("Steps: " << steps);
-    	DBG("Pulses:" << pulses);
-
-    	*/
-        //Create vector for trigger conditions
-        std::vector<int> stepArray(steps, 0);
-
-        //Euclidean algorithm
-
-        for (int i = 1; i < steps; ++i) {
-            int bucket = pulses;
-
-            if (bucket >= steps)
-            {
-                bucket -= steps;
-                stepArray[i] = 1;
-            }
-            else
-            {
-                stepArray[i] = 0;
-            }
-        }
-         
-        //Iterate over steps and trigger note on or off
-        for (int i = 1; i < steps; ++i)
-        {
-            if (trigger == true)
-            {
-                if (stepArray[i] == 1)
+                if (bucket >= steps)
                 {
-                    midiMessages.addEvent(MidiMessage::noteOn(1, note, 100.0f), midiMessages.getLastEventTime() + 1);
+                    stepArray.at(i) = 1;
+                    bucket -= steps;
                 }
-                else if (stepArray[i] == 0)
+                else
                 {
-                    midiMessages.addEvent(MidiMessage::noteOff(1, note, 0.0f), midiMessages.getLastEventTime() + 1);
+                    stepArray.at(i) = 0;
                 }
             }
-        }
+
+            //Iterate over steps and trigger note on or off
+            for (int i = 1; i < steps; ++i)
+            {
+                if (trigger == true)
+                {
+                    if (stepArray[i] == 1)
+                    {
+                        midiMessages.addEvent(MidiMessage::noteOn(1, note, 100.0f), midiMessages.getLastEventTime() + 1);
+                    }
+                    else if (stepArray[i] == 0)
+                    {
+                        midiMessages.addEvent(MidiMessage::noteOff(1, note, 0.0f), midiMessages.getLastEventTime() + 1);
+                    }
+                }
+            }
+    	}
 
     }
 }
@@ -310,6 +301,7 @@ SandysRhythmGeneratorAudioProcessor::Rhythm::Rhythm(AudioParameterBool* isActive
     :
     activated(isActive), octave(octaveNumber), note(noteNumber)
 {
+    currentStep = 0;
     reset();
 }
 
@@ -317,6 +309,7 @@ void SandysRhythmGeneratorAudioProcessor::Rhythm::reset()
 {
     //Translate octave and note choice into Midi note value - (24 is midi value for C1)
     cachedMidiNote = 24 + (note->get() * octave->get()) - 1;
+    activated = false;
 }
 
 StringArray SandysRhythmGeneratorAudioProcessor::getParameterIDs(const int rhythmIndex)
@@ -324,7 +317,6 @@ StringArray SandysRhythmGeneratorAudioProcessor::getParameterIDs(const int rhyth
     String activated = "Activated";
     String note = "NoteNumber";
     String octave = "Octave";
-
 
     StringArray paramIDs = { activated, note, octave };
 
@@ -336,7 +328,7 @@ StringArray SandysRhythmGeneratorAudioProcessor::getParameterIDs(const int rhyth
 
 void SandysRhythmGeneratorAudioProcessor::timerCallback()
 {
-
+	
     for (auto rhythm : rhythms)
     {
         if (rhythm->activated->get() != true)
