@@ -10,6 +10,8 @@
 
 #include <JuceHeader.h>
 
+#include "foleys_gui_magic/General/foleys_MagicProcessorState.h"
+
 //==============================================================================
 /**
 */
@@ -54,6 +56,7 @@ public:
     void setStateInformation(const void* data, int sizeInBytes) override;
 
 private:
+			
     AudioProcessorValueTreeState parameters;
 
     struct Rhythm
@@ -70,6 +73,10 @@ private:
         int currentStep;
 
     };
+
+    OwnedArray<Rhythm> rhythms;
+
+    static StringArray getParameterIDs(int rhythmIndex);
 
 	//Euclidean algorithm
     std::string euclidean(int pulses, int steps)
@@ -123,14 +130,13 @@ private:
         return rhythm;
     }
 
-    OwnedArray<Rhythm> rhythms;
+    double fs;
 
-    static StringArray getParameterIDs(int rhythmIndex);
-
-
+    bool noteIsOn;
+	
     int timerPeriodMs;
 
-    int getTimerInterval() const noexcept { return timerPeriodMs; };
+    int getTimerInterval() const noexcept { return timerPeriodMs; }
 
     void timerCallback() override;
 

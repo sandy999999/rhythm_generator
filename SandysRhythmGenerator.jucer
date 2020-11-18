@@ -32,7 +32,7 @@
         <MODULEPATH id="juce_graphics" path="../../../../../../../../Program Files/JUCE_old/modules"/>
         <MODULEPATH id="juce_gui_basics" path="../../../../../../../../Program Files/JUCE_old/modules"/>
         <MODULEPATH id="juce_gui_extra" path="../../../../../../../../Program Files/JUCE_old/modules"/>
-        <MODULEPATH id="foleys_gui_magic" path="../../../../../JUCE/user_modules"/>
+        <MODULEPATH id="foleys_gui_magic" path="..\..\..\..\..\JUCE\user_modules\foleys_gui_magic"/>
         <MODULEPATH id="juce_dsp" path="../../../../../../../../Program Files/JUCE_old/modules"/>
       </MODULEPATHS>
     </VS2019>

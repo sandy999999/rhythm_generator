@@ -6,12 +6,12 @@
 
 #include "PluginProcessor.h"
 
-#include <random>
+#include "foleys_gui_magic/General/foleys_MagicPluginEditor.h"
 
 //==============================================================================
 SandysRhythmGeneratorAudioProcessor::SandysRhythmGeneratorAudioProcessor()
 #ifndef JucePlugin_PreferredChannelConfigurations
-    : AudioProcessor(BusesProperties()
+    : AudioProcessor(BusesProperties().withInput("Input", AudioChannelSet::mono(), true)//Need audio input to get sample size
 #if ! JucePlugin_IsMidiEffect
 #if ! JucePlugin_IsSynth
         .withInput("Input", juce::AudioChannelSet::stereo(), true)
@@ -133,8 +133,7 @@ void SandysRhythmGeneratorAudioProcessor::changeProgramName(int index, const juc
 //==============================================================================
 void SandysRhythmGeneratorAudioProcessor::prepareToPlay(double sampleRate, int samplesPerBlock)
 {
-    // Use this method as the place to do any pre-playback
-    // initialisation that you need..
+    fs = sampleRate;
 }
 
 void SandysRhythmGeneratorAudioProcessor::releaseResources()
@@ -169,57 +168,84 @@ bool SandysRhythmGeneratorAudioProcessor::isBusesLayoutSupported(const BusesLayo
 
 void SandysRhythmGeneratorAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::MidiBuffer& midiMessages)
 {
-    midiMessages.clear();
-    //No channels in audio buffer for midi effect
-    jassert(buffer.getNumChannels() == 0);
+    //No channels in audio buffer for midi effect, but we use it to get timing info
+    //jassert(buffer.getNumChannels() == 0);
 
-    //Get info from host
+    auto totalNumInputChannels = getTotalNumInputChannels();
+    auto totalNumOutputChannels = getTotalNumOutputChannels();
+
+    for (auto i = totalNumInputChannels; i < totalNumOutputChannels; ++i)
+        buffer.clear(i, 0, buffer.getNumSamples());
+
+    auto numSamples = buffer.getNumSamples();
+	
+    //Get timing info from host
     auto* playHead = getPlayHead();
 
     if (playHead != nullptr)
     {
-        playHead->getCurrentPosition(posInfo);
+        playHead->getCurrentPosition(posInfo); 
     }
-
-    //If you calculate how much time in PPQ has passed in each sample, you can time your midi events correctly.
-
+	
+    auto bpm = posInfo.bpm;
+    auto ppqPosition = posInfo.ppqPosition;
+    auto barPosPpq = ppqPosition - posInfo.ppqPositionOfLastBarStart;
     auto barLengthInQuarterNotes = posInfo.timeSigNumerator * 4. / posInfo.timeSigDenominator;
-    auto positionInBar = 10 * ((floor(posInfo.ppqPosition - posInfo.ppqPositionOfLastBarStart)) / barLengthInQuarterNotes);
-    DBG("Bar length: " << barLengthInQuarterNotes);
-    DBG("Position in bar: " << positionInBar);
+    auto samplesPerBeat = (60 / bpm) * fs;
+    auto sampleCounter = barPosPpq * samplesPerBeat;
+    auto currentSamplePos = (ppqPosition * 60.0 / bpm) * fs;
 
-    //Create midiEvent trigger on each quarter note
-    bool trigger = false;
+    float beatsPerSample = bpm / (fs * 60.0f);
+	
+    auto targetSample = barPosPpq;
 
-    if(positionInBar == 0.00 || positionInBar == 2.5 || positionInBar == 5.00 || positionInBar == 7.5 || positionInBar == 10.00)
+	//MIDI
+
+	/*
+	 *    DBG("Beats per sample: " << beatsPerSample);
+
+	 *
+	 *
+	 *
+	 *
+	 *
+	 *    auto barPosPpq = ppqPosition - posInfo.ppqPositionOfLastBarStart;
+    auto beatsPerSample = bpm / (fs * 60.0f);
+	 *    auto sampleCounter = barPosPpq * samplesPerBeat;
+    int samplesPerStep = (60 / bpm) * fs * 4;
+
+    auto targetSample = barPosPpq;
+	DBG("Samplecount: " << sampleCounter);
+    DBG("SamlePerStep: " << samplesPerStep);
+	 *    int samplePos = 0;
+    MidiBuffer::Iterator it(midiMessages);
+    while (it.getNextEvent(message, samplePos))
     {
-        trigger == true;
+        double beats = ppqPosition + (samplePos / samplesPerBeat);
+        DBG("Beats: " << String::formatted("%4f", beats) << " " << message.getDescription());
     }
+    */
 
 	//Seed for random number generator
     srand(getTimerInterval());
-	
+
     for (auto rhythm : rhythms)
     {
-        int selectedNote = rhythm->note->get();
+    	int selectedNote = rhythm->note->get();
         int selectedOctave = rhythm->octave->get();
 
         //Translate octave and note choice into Midi note value - (24 is midi value for C1)
         int note = 24 + (selectedNote * selectedOctave) - 1;
-         
-    	/*Reset if note is changed
-        if (note != rhythm->cachedMidiNote)
-        {
-            rhythm->reset();
-            continue;
-        }*/
+        int midiChannel = rhythms.indexOf(rhythm);
 
-    	if(rhythm->activated->get()==true)
-    	{
+        if (rhythm->activated->get() == true && posInfo.isPlaying == true)
+        {
+        	/*
             DBG("Rhythm: " << rhythms.indexOf(rhythm));
             DBG("Note: " << note);
             DBG("Octave: " << selectedOctave);
-    		
+            */
+        
             //Generate random step and pulse lengths uniformly
             const int step_min = 4;
             const int step_max = 32;
@@ -229,42 +255,48 @@ void SandysRhythmGeneratorAudioProcessor::processBlock(juce::AudioBuffer<float>&
             int steps = rand() % range + step_min;
             int pulses = rand() % steps + pulse_min;
 
-
-
             //Call Euclidean algorithm and store pulses and steps into string
             std::string rhythmSeq = euclidean(pulses, steps);
-    		
+
+        	/*
             DBG("Rhythm sequence: " << rhythmSeq);
             DBG("Steps: " << rhythmSeq.length());
             DBG("Pulses:" << pulses);
+            */
+    		
+            int stepIndex = -1;
+            int rhythmLength = rhythmSeq.length();
+            DBG("Steps: " << rhythmSeq.length());
 
+            for (int sample = 0; sample < numSamples; sample++)
+            {
+                targetSample += beatsPerSample;
+                DBG(targetSample);
+            	
+                if (targetSample > 2.0)
+                {                	
+                    stepIndex++;
+                    rhythm->currentStep = stepIndex;
+                    DBG("Current step: " << stepIndex);
 
-    		//Reset sequence when reaching end
-            if (rhythm->currentStep >= (rhythmSeq.length())) {
-                rhythm->currentStep = 0;
+                    if (rhythmSeq[stepIndex] == 1)
+                    {
+                        midiMessages.addEvent(MidiMessage::noteOn(midiChannel, note, (juce::uint8) 100), midiMessages.getLastEventTime() + 1);
+                    }
+                    else if (rhythmSeq[stepIndex] == 0)
+                    {
+                        midiMessages.addEvent(MidiMessage::noteOff(midiChannel, note, (juce::uint8) 0), midiMessages.getLastEventTime() + 1);
+                    }
+
+                    if (stepIndex > rhythmLength)
+                    {
+                        stepIndex = 0;
+                    }
+                }
             }
-
-    		for(int i = 1; i < rhythmSeq.length(); ++i)
-    		{
-    			if(trigger == true)
-    			{
-                    rhythm->currentStep = i;
-                    DBG("Current step: " << rhythm->currentStep);
-
-                    if (rhythmSeq[i] == 1)
-                    {
-                        midiMessages.addEvent(MidiMessage::noteOn(1, note, 100.0f), midiMessages.getLastEventTime() + 1);
-                        DBG("Note on on rhythm number " << rhythms.indexOf(rhythm));
-                    }
-                    else if (rhythmSeq[i] == 0)
-                    {
-                        midiMessages.addEvent(MidiMessage::noteOff(1, note, 0.0f), midiMessages.getLastEventTime() + 1);
-                    }
-    			}
-    		}
     	}
-
     }
+
 }
 
 //==============================================================================
@@ -315,7 +347,7 @@ StringArray SandysRhythmGeneratorAudioProcessor::getParameterIDs(const int rhyth
     String note = "NoteNumber";
     String octave = "Octave";
 
-    StringArray paramIDs = { activated, note, octave };
+    StringArray paramIDs = { activated, octave, note };
 
     //Append Rhythms index to parameter IDs
     for (int i = 0; i < paramIDs.size(); ++i)
