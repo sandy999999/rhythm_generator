@@ -70,7 +70,7 @@ private:
         AudioParameterInt* note;
 
         int cachedMidiNote;
-        int currentStep = -1;
+        int currentStep;
 
     };
 
@@ -132,6 +132,7 @@ private:
 
     double fs;
     int time;
+    int stepIndex;
 
     bool noteIsOn;
 	
@@ -140,8 +141,6 @@ private:
     int getTimerInterval() const noexcept { return timerPeriodMs; }
 
     void timerCallback() override;
-
-    MidiBuffer processedBuffer;
 	
     AudioProcessorValueTreeState::ParameterLayout createParameterLayout(int rhythmCount) const;
 
