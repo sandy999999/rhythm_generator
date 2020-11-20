@@ -270,51 +270,67 @@ void SandysRhythmGeneratorAudioProcessor::processBlock(juce::AudioBuffer<float>&
 
             targetSample += ppqPerSample;
             DBG("Target sample: " << targetSample);
-                DBG("counter: " << counter);
+            DBG("counter: " << counter);
 
-                    if ((counter + numSamples) >= samplesPerBeat)
+
+        	do
+        	{
+                stepIndex++;
+            }
+        	while ((counter + numSamples) >= samplesPerBeat && stepIndex < rhythmLength);
+
+        	
+            if ((counter + numSamples) >= samplesPerBeat)
+            {
+                if (rhythmSeq[stepIndex] == 1)
+                {
+                    midiMessages.addEvent(MidiMessage::noteOn(1, note, (juce::uint8) 100), midiMessages.getLastEventTime() + 1);
+                }
+                else if (rhythmSeq[stepIndex] == 0)
+                {
+                    midiMessages.addEvent(MidiMessage::noteOn(1, note, (juce::uint8) 0), midiMessages.getLastEventTime() + 1);
+                }
+            }
+
+                    /*
+                    stepIndex++;
+                    DBG("current step: " << stepIndex);
+                    DBG(rhythmSeq[stepIndex]);
+
+                    if (rhythmSeq[stepIndex] == 1)
                     {
-
-                        stepIndex++;
-                        DBG("current step: " << stepIndex);
-                        DBG(rhythmSeq[stepIndex]);
-
-                        if (rhythmSeq[stepIndex] == 1)
-                        {
-                            midiMessages.addEvent(MidiMessage::noteOn(1, note, (juce::uint8) 100), midiMessages.getLastEventTime() + 1);
-                        }
-                        else if (rhythmSeq[stepIndex] == 0)
-                        {
-                            midiMessages.addEvent(MidiMessage::noteOff(1, note, (juce::uint8) 0), midiMessages.getLastEventTime() + 1);
-
-                        }
-                        /*
-                        for(int i = 0; i < rhythmLength; ++i)
-                        {
-                            stepIndex++;
-                            rhythm->currentStep = stepIndex;
-                            DBG("Current step: " << stepIndex);
-                        }
-
-                        if (rhythmSeq[stepIndex] == 1)
-                        {
-                            midiMessages.addEvent(MidiMessage::noteOn(1, note, (juce::uint8) 100), midiMessages.getLastEventTime() + 1);
-                        }
-                        else if (rhythmSeq[stepIndex] == 0)
-                        {
-                            midiMessages.addEvent(MidiMessage::noteOff(1, note, (juce::uint8) 0), midiMessages.getLastEventTime() + 1);
-
-                        }
-                        //Reset sequence if step incrementation passes sequence length
-                        if (stepIndex > rhythmLength)
-                        {
-                            stepIndex = 0;
-                        }
-                        */
+                        midiMessages.addEvent(MidiMessage::noteOn(1, note, (juce::uint8) 100), midiMessages.getLastEventTime() + 1);
+                    }
+                    else if (rhythmSeq[stepIndex] == 0)
+                    {
+                    midiMessages.addEvent(MidiMessage::noteOn(1, note, (juce::uint8) 100), midiMessages.getLastEventTime() + 1);
 
                     }
-                
+                    
+                    for(int i = 0; i < rhythmLength; ++i)
+                    {
+                        stepIndex++;
+                        rhythm->currentStep = stepIndex;
+                        DBG("Current step: " << stepIndex);
+                    }
 
+                    if (rhythmSeq[stepIndex] == 1)
+                    {
+                        midiMessages.addEvent(MidiMessage::noteOn(1, note, (juce::uint8) 100), midiMessages.getLastEventTime() + 1);
+                    }
+                    else if (rhythmSeq[stepIndex] == 0)
+                    {
+                        midiMessages.addEvent(MidiMessage::noteOff(1, note, (juce::uint8) 0), midiMessages.getLastEventTime() + 1);
+
+                    }
+                    //Reset sequence if step incrementation passes sequence length
+                    if (stepIndex > rhythmLength)
+                    {
+                        stepIndex = 0;
+                    }
+                    */
+
+                
         }
 
     }
