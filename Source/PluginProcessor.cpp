@@ -169,13 +169,8 @@ bool SandysRhythmGeneratorAudioProcessor::isBusesLayoutSupported(const BusesLayo
 
 void SandysRhythmGeneratorAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::MidiBuffer& midiMessages)
 {
-    //No channels in audio buffer for midi effect, but we use it to get timing info
-    //jassert(buffer.getNumChannels() == 0);
 
     buffer.clear();
-
-    auto totalNumInputChannels = getTotalNumInputChannels();
-    auto totalNumOutputChannels = getTotalNumOutputChannels();
 
     auto numSamples = buffer.getNumSamples();
 	
@@ -198,10 +193,18 @@ void SandysRhythmGeneratorAudioProcessor::processBlock(juce::AudioBuffer<float>&
 	
     auto eventTime = counter % numSamples;
 
+	/*
+	 *DEPRECATED DATA
     auto noteDuration = static_cast<int> (ceil(samplesPerBeat * 0.5f));
 
     auto targetSample = barPosPpq;
 
+    DBG("Note dur: " << noteDuration);
+    time = (time + numSamples) % noteDuration;
+    DBG("time: " << time);
+    targetSample += ppqPerSample;
+    DBG("Target sample: " << targetSample);
+    */
 
     /*MIDI
 
@@ -223,7 +226,6 @@ void SandysRhythmGeneratorAudioProcessor::processBlock(juce::AudioBuffer<float>&
 
     midiMessages.swapWith(processedBuffer);
     */
-	
 	
 	//Seed for random number generator
     srand(getTimerInterval());
@@ -264,31 +266,17 @@ void SandysRhythmGeneratorAudioProcessor::processBlock(juce::AudioBuffer<float>&
 
             int stepIndex = -1;
             int rhythmLength = rhythmSeq.length();
-            DBG("Steps: " << rhythmSeq.length());
-
-            DBG("Note dur: " << noteDuration);
-
-            targetSample += ppqPerSample;
-            DBG("Target sample: " << targetSample);
-            DBG("counter: " << counter);
-
-
-        	do
-        	{
-                stepIndex++;
-            }
-        	while ((counter + numSamples) >= samplesPerBeat && stepIndex < rhythmLength);
-
         	
             if ((counter + numSamples) >= samplesPerBeat)
             {
+                stepIndex++;
+            	
+                DBG(stepIndex);
+                DBG(rhythmSeq[stepIndex]);
+            	
                 if (rhythmSeq[stepIndex] == 1)
                 {
                     midiMessages.addEvent(MidiMessage::noteOn(1, note, (juce::uint8) 100), midiMessages.getLastEventTime() + 1);
-                }
-                else if (rhythmSeq[stepIndex] == 0)
-                {
-                    midiMessages.addEvent(MidiMessage::noteOn(1, note, (juce::uint8) 0), midiMessages.getLastEventTime() + 1);
                 }
             }
 
@@ -334,9 +322,7 @@ void SandysRhythmGeneratorAudioProcessor::processBlock(juce::AudioBuffer<float>&
         }
 
     }
-	
-    time = (time + numSamples) % noteDuration;
-    DBG("time: " << time);
+
 
 }
 
@@ -379,7 +365,7 @@ SandysRhythmGeneratorAudioProcessor::Rhythm::Rhythm(AudioParameterBool* isActive
 void SandysRhythmGeneratorAudioProcessor::Rhythm::reset()
 {
     cachedMidiNote = 24 + (note->get() * octave->get()) - 1;
-    currentStep = 0;
+    currentStep = -1;
 }
 
 StringArray SandysRhythmGeneratorAudioProcessor::getParameterIDs(const int rhythmIndex)

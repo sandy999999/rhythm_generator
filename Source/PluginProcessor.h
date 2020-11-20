@@ -70,7 +70,7 @@ private:
         AudioParameterInt* note;
 
         int cachedMidiNote;
-        int currentStep;
+        int currentStep = -1;
 
     };
 
