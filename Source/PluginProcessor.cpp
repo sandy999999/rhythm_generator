@@ -134,6 +134,7 @@ void SandysRhythmGeneratorAudioProcessor::changeProgramName(int index, const juc
 void SandysRhythmGeneratorAudioProcessor::prepareToPlay(double sampleRate, int samplesPerBlock)
 {
     fs = sampleRate;
+    time = 0;
 }
 
 void SandysRhythmGeneratorAudioProcessor::releaseResources()
@@ -171,11 +172,10 @@ void SandysRhythmGeneratorAudioProcessor::processBlock(juce::AudioBuffer<float>&
     //No channels in audio buffer for midi effect, but we use it to get timing info
     //jassert(buffer.getNumChannels() == 0);
 
+    buffer.clear();
+
     auto totalNumInputChannels = getTotalNumInputChannels();
     auto totalNumOutputChannels = getTotalNumOutputChannels();
-
-    for (auto i = totalNumInputChannels; i < totalNumOutputChannels; ++i)
-        buffer.clear(i, 0, buffer.getNumSamples());
 
     auto numSamples = buffer.getNumSamples();
 	
@@ -186,46 +186,45 @@ void SandysRhythmGeneratorAudioProcessor::processBlock(juce::AudioBuffer<float>&
     {
         playHead->getCurrentPosition(posInfo); 
     }
-	
+
     auto bpm = posInfo.bpm;
-    auto ppqPosition = posInfo.ppqPosition;
-    auto barPosPpq = ppqPosition - posInfo.ppqPositionOfLastBarStart;
-    auto barLengthInQuarterNotes = posInfo.timeSigNumerator * 4. / posInfo.timeSigDenominator;
-    auto samplesPerBeat = (60 / bpm) * fs;
-    auto sampleCounter = barPosPpq * samplesPerBeat;
-    auto currentSamplePos = (ppqPosition * 60.0 / bpm) * fs;
-
-    float beatsPerSample = bpm / (fs * 60.0f);
+    auto bps = bpm / 60.0f;
+    auto ppqPos = posInfo.ppqPosition;
+    auto barPosPpq = ppqPos - posInfo.ppqPositionOfLastBarStart;
+    auto ppqPerSample = bpm / (fs * 60.0f);
+    double bufferSizePpq = (double)(numSamples) * ppqPerSample;
+    auto samplesPerBeat = fs / bps;
+    auto counter = static_cast<int>(posInfo.timeInSamples % (int)(samplesPerBeat));
 	
-    auto targetSample = barPosPpq;
+    auto eventTime = counter % numSamples;
 
-	//MIDI
-
-	/*
-	 *    DBG("Beats per sample: " << beatsPerSample);
-
-	 *
-	 *
-	 *
-	 *
-	 *
-	 *    auto barPosPpq = ppqPosition - posInfo.ppqPositionOfLastBarStart;
-    auto beatsPerSample = bpm / (fs * 60.0f);
-	 *    auto sampleCounter = barPosPpq * samplesPerBeat;
-    int samplesPerStep = (60 / bpm) * fs * 4;
+    auto noteDuration = static_cast<int> (ceil(samplesPerBeat * 0.5f));
 
     auto targetSample = barPosPpq;
-	DBG("Samplecount: " << sampleCounter);
-    DBG("SamlePerStep: " << samplesPerStep);
-	 *    int samplePos = 0;
+
+
+    /*MIDI
+
+    processedBuffer.clear();
+	
     MidiBuffer::Iterator it(midiMessages);
-    while (it.getNextEvent(message, samplePos))
-    {
-        double beats = ppqPosition + (samplePos / samplesPerBeat);
-        DBG("Beats: " << String::formatted("%4f", beats) << " " << message.getDescription());
-    }
-    */
+    MidiMessage currentMessage;
+    int samplePos;
 
+	while (it.getNextEvent(currentMessage, samplePos))
+	{
+		if (currentMessage.isNoteOn())
+		{
+            currentMessage.setVelocity(100);
+		}
+
+        DBG(currentMessage.getDescription());
+	}
+
+    midiMessages.swapWith(processedBuffer);
+    */
+	
+	
 	//Seed for random number generator
     srand(getTimerInterval());
 
@@ -236,16 +235,15 @@ void SandysRhythmGeneratorAudioProcessor::processBlock(juce::AudioBuffer<float>&
 
         //Translate octave and note choice into Midi note value - (24 is midi value for C1)
         int note = 24 + (selectedNote * selectedOctave) - 1;
-        int midiChannel = rhythms.indexOf(rhythm);
 
         if (rhythm->activated->get() == true && posInfo.isPlaying == true)
         {
-        	/*
+            /*
             DBG("Rhythm: " << rhythms.indexOf(rhythm));
             DBG("Note: " << note);
             DBG("Octave: " << selectedOctave);
             */
-        
+
             //Generate random step and pulse lengths uniformly
             const int step_min = 4;
             const int step_max = 32;
@@ -258,44 +256,71 @@ void SandysRhythmGeneratorAudioProcessor::processBlock(juce::AudioBuffer<float>&
             //Call Euclidean algorithm and store pulses and steps into string
             std::string rhythmSeq = euclidean(pulses, steps);
 
-        	/*
+            /*
             DBG("Rhythm sequence: " << rhythmSeq);
             DBG("Steps: " << rhythmSeq.length());
             DBG("Pulses:" << pulses);
             */
-    		
+
             int stepIndex = -1;
             int rhythmLength = rhythmSeq.length();
             DBG("Steps: " << rhythmSeq.length());
 
-            for (int sample = 0; sample < numSamples; sample++)
-            {
-                targetSample += beatsPerSample;
-                DBG(targetSample);
-            	
-                if (targetSample > 2.0)
-                {                	
-                    stepIndex++;
-                    rhythm->currentStep = stepIndex;
-                    DBG("Current step: " << stepIndex);
+            DBG("Note dur: " << noteDuration);
 
-                    if (rhythmSeq[stepIndex] == 1)
-                    {
-                        midiMessages.addEvent(MidiMessage::noteOn(midiChannel, note, (juce::uint8) 100), midiMessages.getLastEventTime() + 1);
-                    }
-                    else if (rhythmSeq[stepIndex] == 0)
-                    {
-                        midiMessages.addEvent(MidiMessage::noteOff(midiChannel, note, (juce::uint8) 0), midiMessages.getLastEventTime() + 1);
-                    }
+            targetSample += ppqPerSample;
+            DBG("Target sample: " << targetSample);
+                DBG("counter: " << counter);
 
-                    if (stepIndex > rhythmLength)
+                    if ((counter + numSamples) >= samplesPerBeat)
                     {
-                        stepIndex = 0;
+
+                        stepIndex++;
+                        DBG("current step: " << stepIndex);
+                        DBG(rhythmSeq[stepIndex]);
+
+                        if (rhythmSeq[stepIndex] == 1)
+                        {
+                            midiMessages.addEvent(MidiMessage::noteOn(1, note, (juce::uint8) 100), midiMessages.getLastEventTime() + 1);
+                        }
+                        else if (rhythmSeq[stepIndex] == 0)
+                        {
+                            midiMessages.addEvent(MidiMessage::noteOff(1, note, (juce::uint8) 0), midiMessages.getLastEventTime() + 1);
+
+                        }
+                        /*
+                        for(int i = 0; i < rhythmLength; ++i)
+                        {
+                            stepIndex++;
+                            rhythm->currentStep = stepIndex;
+                            DBG("Current step: " << stepIndex);
+                        }
+
+                        if (rhythmSeq[stepIndex] == 1)
+                        {
+                            midiMessages.addEvent(MidiMessage::noteOn(1, note, (juce::uint8) 100), midiMessages.getLastEventTime() + 1);
+                        }
+                        else if (rhythmSeq[stepIndex] == 0)
+                        {
+                            midiMessages.addEvent(MidiMessage::noteOff(1, note, (juce::uint8) 0), midiMessages.getLastEventTime() + 1);
+
+                        }
+                        //Reset sequence if step incrementation passes sequence length
+                        if (stepIndex > rhythmLength)
+                        {
+                            stepIndex = 0;
+                        }
+                        */
+
                     }
-                }
-            }
-    	}
+                
+
+        }
+
     }
+	
+    time = (time + numSamples) % noteDuration;
+    DBG("time: " << time);
 
 }
 

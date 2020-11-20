@@ -131,6 +131,7 @@ private:
     }
 
     double fs;
+    int time;
 
     bool noteIsOn;
 	
@@ -140,7 +141,8 @@ private:
 
     void timerCallback() override;
 
-
+    MidiBuffer processedBuffer;
+	
     AudioProcessorValueTreeState::ParameterLayout createParameterLayout(int rhythmCount) const;
 
     static int getRhythmCount();
