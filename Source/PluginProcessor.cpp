@@ -63,7 +63,7 @@ AudioProcessorValueTreeState::ParameterLayout SandysRhythmGeneratorAudioProcesso
         params.add(std::make_unique<AudioParameterBool>(paramIDs[0], paramIDs[0], false));
         params.add(std::make_unique<AudioParameterInt>(paramIDs[1], paramIDs[1], 24, 119, 24));
         params.add(std::make_unique<AudioParameterInt>(paramIDs[2], paramIDs[2], 1, 32, 8));
-        params.add(std::make_unique<AudioParameterInt>(paramIDs[3], paramIDs[3], 1, 32, 0));
+        params.add(std::make_unique<AudioParameterInt>(paramIDs[3], paramIDs[3], 1, 32, 4));
     }
 
     return params;
@@ -206,7 +206,7 @@ void SandysRhythmGeneratorAudioProcessor::processBlock(juce::AudioBuffer<float>&
             int pulses = rhythm->pulses->get();
 
             DBG("steps: " << steps);
-            DBG("steps: " << pulses);
+            DBG("pulses: " << pulses);
 
 
             int note = rhythm->note->get();
