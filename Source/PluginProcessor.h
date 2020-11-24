@@ -61,16 +61,16 @@ private:
 
     struct Rhythm
     {
-        Rhythm(AudioParameterBool* isActive, AudioParameterInt* octaveNumber, AudioParameterInt* noteNumber);
+        Rhythm(AudioParameterBool* isActive, AudioParameterInt* noteNumber, AudioParameterInt* stepsNumber, AudioParameterInt* pulseNumber);
 
         void reset();
 
         AudioParameterBool* activated;
-        AudioParameterInt* octave;
         AudioParameterInt* note;
+        AudioParameterInt* steps;
+        AudioParameterInt* pulses;
 
         int cachedMidiNote;
-        int currentStep;
 
     };
 
@@ -137,8 +137,6 @@ private:
     bool noteIsOn;
 	
     int timerPeriodMs;
-
-    int getTimerInterval() const noexcept { return timerPeriodMs; }
 
     void timerCallback() override;
 	

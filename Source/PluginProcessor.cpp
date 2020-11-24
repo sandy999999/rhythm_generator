@@ -6,6 +6,8 @@
 
 #include "PluginProcessor.h"
 
+#include <random>
+
 #include "foleys_gui_magic/General/foleys_MagicPluginEditor.h"
 
 //==============================================================================
@@ -24,18 +26,21 @@ SandysRhythmGeneratorAudioProcessor::SandysRhythmGeneratorAudioProcessor()
     for (int i = 0; i < getRhythmCount(); ++i)
     {
         auto paramIDs = getParameterIDs(i);
-        jassert(paramIDs.size() == 3);
+        jassert(paramIDs.size() == 4);
 
         auto activeParam = dynamic_cast<AudioParameterBool*>(parameters.getParameter(paramIDs[0]));
         jassert(activeParam != nullptr);
 
-        auto octParam = dynamic_cast<AudioParameterInt*>(parameters.getParameter(paramIDs[1]));
-        jassert(octParam != nullptr);
-
-        auto noteParam = dynamic_cast<AudioParameterInt*>(parameters.getParameter(paramIDs[2]));
+        auto noteParam = dynamic_cast<AudioParameterInt*>(parameters.getParameter(paramIDs[1]));
         jassert(noteParam != nullptr);
 
-        rhythms.add(new Rhythm(activeParam, octParam, noteParam));
+        auto stepsParam = dynamic_cast<AudioParameterInt*>(parameters.getParameter(paramIDs[2]));
+        jassert(stepsParam != nullptr);
+
+        auto pulseParam = dynamic_cast<AudioParameterInt*>(parameters.getParameter(paramIDs[3]));
+        jassert(pulseParam != nullptr);
+
+        rhythms.add(new Rhythm(activeParam, noteParam, stepsParam, pulseParam));
     }
     startTimer(20);
 }
@@ -53,11 +58,12 @@ AudioProcessorValueTreeState::ParameterLayout SandysRhythmGeneratorAudioProcesso
     for (int i = 0; i < rhythmCount; ++i)
     {
         auto paramIDs = getParameterIDs(i);
-        jassert(paramIDs.size() == 3);
+        jassert(paramIDs.size() == 4);
 
         params.add(std::make_unique<AudioParameterBool>(paramIDs[0], paramIDs[0], false));
-        params.add(std::make_unique<AudioParameterInt>(paramIDs[1], paramIDs[1], 1, 8, 4));
-        params.add(std::make_unique<AudioParameterInt>(paramIDs[2], paramIDs[2], 1, 12, 1));
+        params.add(std::make_unique<AudioParameterInt>(paramIDs[1], paramIDs[1], 24, 119, 24));
+        params.add(std::make_unique<AudioParameterInt>(paramIDs[2], paramIDs[2], 1, 32, 8));
+        params.add(std::make_unique<AudioParameterInt>(paramIDs[3], paramIDs[3], 1, 32, 0));
     }
 
     return params;
@@ -187,87 +193,50 @@ void SandysRhythmGeneratorAudioProcessor::processBlock(juce::AudioBuffer<float>&
     auto bps = bpm / 60.0f;
     auto samplesPerBeat = (fs / bps) / 2;
     auto counter = static_cast<int>(posInfo.timeInSamples % (int)(samplesPerBeat));
-
-    auto noteDuration = static_cast<int> (std::ceil(fs * 0.25f));
 	
     auto eventTime = counter % numSamples;
 
-	/*
-	 *DEPRECATED DATA
-	 *
-	 *
-	auto ppqPos = posInfo.ppqPosition;
-    auto barPosPpq = ppqPos - posInfo.ppqPositionOfLastBarStart;
-    auto ppqPerSample = bpm / (fs * 60.0f);
-    double bufferSizePpq = (double)(numSamples) * ppqPerSample;
+	srand(getTimerInterval());
     
-    auto noteDuration = static_cast<int> (ceil(samplesPerBeat * 0.5f));
-
-    auto targetSample = barPosPpq;
-
-    DBG("Note dur: " << noteDuration);
-    time = (time + numSamples) % noteDuration;
-    DBG("time: " << time);
-    targetSample += ppqPerSample;
-    DBG("Target sample: " << targetSample);
-    */
-
-    //MIDI buffer
-    
-	
-	//Seed for random number generator
-    srand(getTimerInterval());
-
     for (auto rhythm : rhythms)
     {
-    	int selectedNote = rhythm->note->get();
-        int selectedOctave = rhythm->octave->get();
-
-        //Translate octave and note choice into Midi note value - (24 is midi value for C1)
-        int note = 24 + (selectedNote * selectedOctave) - 1;
-
         if (rhythm->activated->get() == true && posInfo.isPlaying == true)
         {
-            /*
-            DBG("Rhythm: " << rhythms.indexOf(rhythm));
-            DBG("Note: " << note);
-            DBG("Octave: " << selectedOctave);
-            */
+            int steps = rhythm->steps->get();
+            int pulses = rhythm->pulses->get();
 
-            //Generate random step and pulse lengths uniformly
-            const int step_min = 4;
-            const int step_max = 32;
-            const int pulse_min = 1;
-            int range = step_min - step_max + 1;
+            DBG("steps: " << steps);
+            DBG("steps: " << pulses);
 
-            int steps = rand() % range + step_min;
-            int pulses = rand() % steps + pulse_min;
 
+            int note = rhythm->note->get();
+
+            if (pulses > steps)
+            {
+                rhythm->pulses->setValueNotifyingHost(steps);
+            }
 
         	//Reset indexing when reaching end of rhythm 
             if (stepIndex >= steps)
             {
-                stepIndex = 0;
+                stepIndex = -1;
             }
 
             //Call Euclidean algorithm and store pulses and steps into string
             std::string rhythmSeq = euclidean(pulses, steps);
 
-            int rhythmLength = rhythmSeq.length();
-            auto offset = jmax(0, jmin((int)(noteDuration - time), numSamples - 1));
-
-
             if ((counter + numSamples) >= samplesPerBeat)
             {            	
                 stepIndex++;
+                DBG("Rythmseq: " << rhythmSeq);
             	
-                if (rhythmSeq[stepIndex] == '0')
+                if (rhythmSeq[stepIndex] == '1')
                 {
-                    midiMessages.addEvent(MidiMessage::noteOn(1, note, (juce::uint8) 100), offset);
+                    midiMessages.addEvent(MidiMessage::noteOn(1, note, (juce::uint8) 100), midiMessages.getLastEventTime() + 1);
                 }
-            	else if (rhythmSeq[stepIndex] == '1')
+            	else if (rhythmSeq[stepIndex] == '0')
                 {
-                    midiMessages.addEvent(MidiMessage::noteOff(1, note, (juce::uint8) 0), offset);
+                    midiMessages.addEvent(MidiMessage::noteOff(1, note, (juce::uint8) 0), midiMessages.getLastEventTime() + 1);
 
                 }
             }
@@ -276,7 +245,6 @@ void SandysRhythmGeneratorAudioProcessor::processBlock(juce::AudioBuffer<float>&
         }
 
     }
-    time = (time + numSamples) % noteDuration;
 }
 
 //==============================================================================
@@ -308,25 +276,26 @@ void SandysRhythmGeneratorAudioProcessor::setStateInformation(const void* data, 
     magicState.setStateInformation(data, sizeInBytes, getActiveEditor());
 }
 
-SandysRhythmGeneratorAudioProcessor::Rhythm::Rhythm(AudioParameterBool* isActive, AudioParameterInt* octaveNumber, AudioParameterInt* noteNumber)
+SandysRhythmGeneratorAudioProcessor::Rhythm::Rhythm(AudioParameterBool* isActive, AudioParameterInt* noteNumber, AudioParameterInt* stepsNumber, AudioParameterInt* pulseNumber)
     :
-    activated(isActive), octave(octaveNumber), note(noteNumber)
+    activated(isActive), note(noteNumber), steps(stepsNumber), pulses(pulseNumber)
 {
     reset();
 }
 
 void SandysRhythmGeneratorAudioProcessor::Rhythm::reset()
 {
-    cachedMidiNote = 24 + (note->get() * octave->get()) - 1;
+    cachedMidiNote = note->get();
 }
 
 StringArray SandysRhythmGeneratorAudioProcessor::getParameterIDs(const int rhythmIndex)
 {
     String activated = "Activated";
     String note = "NoteNumber";
-    String octave = "Octave";
+    String steps = "Steps";
+    String pulses = "Pulses";
 
-    StringArray paramIDs = { activated, octave, note };
+    StringArray paramIDs = { activated, note, steps, pulses };
 
     //Append Rhythms index to parameter IDs
     for (int i = 0; i < paramIDs.size(); ++i)
