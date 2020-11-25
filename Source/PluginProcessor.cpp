@@ -205,10 +205,6 @@ void SandysRhythmGeneratorAudioProcessor::processBlock(juce::AudioBuffer<float>&
             int steps = rhythm->steps->get();
             int pulses = rhythm->pulses->get();
 
-            DBG("steps: " << steps);
-            DBG("pulses: " << pulses);
-
-
             int note = rhythm->note->get();
 
             if (pulses > steps)
@@ -228,7 +224,6 @@ void SandysRhythmGeneratorAudioProcessor::processBlock(juce::AudioBuffer<float>&
             if ((counter + numSamples) >= samplesPerBeat)
             {            	
                 stepIndex++;
-                DBG("Rythmseq: " << rhythmSeq);
             	
                 if (rhythmSeq[stepIndex] == '1')
                 {
