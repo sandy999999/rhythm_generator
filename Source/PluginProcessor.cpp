@@ -195,16 +195,16 @@ void SandysRhythmGeneratorAudioProcessor::processBlock(juce::AudioBuffer<float>&
     auto counter = static_cast<int>(posInfo.timeInSamples % (int)(samplesPerBeat));
 	
     auto eventTime = counter % numSamples;
-
-	srand(getTimerInterval());
     
     for (auto rhythm : rhythms)
     {
         if (rhythm->activated->get() == true && posInfo.isPlaying == true)
         {
+
             int steps = rhythm->steps->get();
             int pulses = rhythm->pulses->get();
 
+        	
             int note = rhythm->note->get();
 
             if (pulses > steps)
@@ -212,17 +212,17 @@ void SandysRhythmGeneratorAudioProcessor::processBlock(juce::AudioBuffer<float>&
                 rhythm->pulses->setValueNotifyingHost(steps);
             }
 
-        	//Reset indexing when reaching end of rhythm 
-            if (stepIndex >= steps)
-            {
-                stepIndex = -1;
-            }
-
             //Call Euclidean algorithm and store pulses and steps into string
             std::string rhythmSeq = euclidean(pulses, steps);
 
             if ((counter + numSamples) >= samplesPerBeat)
-            {            	
+            {
+                //Reset indexing when reaching end of rhythm 
+                if (stepIndex >= steps)
+                {
+                    stepIndex = -1;
+                }
+
                 stepIndex++;
             	
                 if (rhythmSeq[stepIndex] == '1')
