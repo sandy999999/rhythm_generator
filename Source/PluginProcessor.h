@@ -61,7 +61,7 @@ private:
 
     struct Rhythm
     {
-        Rhythm(AudioParameterBool* isActive, AudioParameterInt* noteNumber, AudioParameterInt* stepsNumber, AudioParameterInt* pulseNumber);
+        Rhythm(AudioParameterBool* isActive, AudioParameterInt* noteNumber, AudioParameterInt* stepsNumber, AudioParameterInt* pulseNumber, AudioParameterBool* sphereOn);
 
         void reset();
 
@@ -69,6 +69,7 @@ private:
         AudioParameterInt* note;
         AudioParameterInt* steps;
         AudioParameterInt* pulses;
+        AudioParameterBool* sphere;
 
         int cachedMidiNote;
 
